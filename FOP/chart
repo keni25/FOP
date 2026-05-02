@@ -1,0 +1,201 @@
+package fop_pasti_assignment;
+
+import java.awt.Color;
+import javax.swing.JPanel;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.data.category.DefaultCategoryDataset;
+import java.sql.Connection; 
+import java.sql.ResultSet; 
+import java.sql.SQLException; 
+import javax.swing.*;
+import java.sql.*;
+import org.jfree.chart.renderer.category.BarRenderer;
+import org.jfree.chart.renderer.category.StandardBarPainter;
+
+public class chart {
+    public static void main(String args[]){
+        chartt();
+    }
+    public static void chartt() {
+        SwingUtilities.invokeLater(() -> {
+            JFrame frame = new JFrame("Data Visualization");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setLayout(new java.awt.GridLayout(3, 1));
+
+            // Spending Trends - Bar Chart
+            frame.add(createBarChartPanel());
+
+            // Savings Growth - Line Chart
+            frame.add(createLineChartPanel());
+
+            // Loan Repayment - Bar Chart
+            frame.add(createLoanRepaymentPanel());
+
+            frame.pack();
+            frame.setVisible(true);
+        });
+    }
+
+    // Database connection
+//    private static Connection connectToDatabase() {
+//        try {
+//            return DriverManager.getConnection("jdbc:sqlite:Users0.db");
+//        } catch (SQLException e) {
+//            System.out.println("Database connection error: " + e.getMessage());
+//            return null;
+//        }
+//    }
+
+    // Fetch spending data from the database
+    private static DefaultCategoryDataset getSpendingData() {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        try (Connection conn = DatabaseUtil.connect()) {
+            String sql = "SELECT description, amount FROM transactions WHERE transaction_type = 'credit'";
+            try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+                while (rs.next()) {
+                    String category = rs.getString("description");
+                    double amount = rs.getDouble("amount");
+                    dataset.addValue(amount, "Amount", category);
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error fetching spending data: " + e.getMessage());
+        }
+
+        return dataset;
+    }
+
+    private static DefaultCategoryDataset getSavingsData() {
+    DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+    // Define month names in correct order
+    String[] monthsInOrder = {
+        "January", "February", "March", "April", "May", "June", 
+        "July", "August", "September", "October", "November", "December"
+    };
+
+    // Use an array to store total savings for each month
+    double[] monthlySavings = new double[12];
+
+    try (Connection conn = DatabaseUtil.connect()) {
+        String sql = "SELECT date, percentage FROM savings"; // Adjusted query
+        try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                String fullDate = rs.getString("date"); // Fetch the full date (e.g., 2025-02-06)
+                double amount = rs.getDouble("percentage"); // Fetch the percentage
+
+                // Extract the month (assume yyyy-MM-dd format)
+                String[] parts = fullDate.split("-"); // Split the date string
+                int monthIndex = Integer.parseInt(parts[1]) - 1; // Convert to 0-based index
+
+                if (monthIndex >= 0 && monthIndex < 12) {
+                    monthlySavings[monthIndex] += amount; // Add to the respective month
+                }
+            }
+        }
+    } catch (SQLException e) {
+        System.out.println("Error fetching savings data: " + e.getMessage());
+    }
+
+    // Add data to the dataset in the correct month order
+    for (int i = 0; i < 12; i++) {
+        dataset.addValue(monthlySavings[i], "Savings", monthsInOrder[i]);
+    }
+
+    return dataset;
+}
+
+    private static DefaultCategoryDataset getLoanRepaymentData() {
+    DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+    // Define month names in the correct order
+    String[] monthsInOrder = {
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    };
+
+    // Use an array to store total outstanding_balance for each month
+    double[] monthlyBalances = new double[12];
+
+    try (Connection conn = DatabaseUtil.connect()) {
+        String sql = "SELECT created_at, outstanding_balance FROM loans";
+        try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                String createdAt = rs.getString("created_at"); // Fetch the created_at date
+                double balance = rs.getDouble("outstanding_balance"); // Fetch the outstanding_balance
+
+                // Extract the month from the created_at field (assuming D-M-Y format)
+                String[] parts = createdAt.split("-"); // Split the date string
+                int monthIndex = Integer.parseInt(parts[1]) - 1; // Convert month to 0-based index
+
+                if (monthIndex >= 0 && monthIndex < 12) {
+                    monthlyBalances[monthIndex] += balance; // Add balance to the respective month
+                }
+            }
+        }
+    } catch (SQLException e) {
+        System.out.println("Error fetching loan repayment data: " + e.getMessage());
+    }
+
+    // Add data to the dataset in the correct month order
+    for (int i = 0; i < 12; i++) {
+        dataset.addValue(monthlyBalances[i], "Outstanding Balance", monthsInOrder[i]);
+    }
+
+    return dataset;
+}
+
+    // Spending Trends (Bar Chart)
+    private static JPanel createBarChartPanel() {
+        DefaultCategoryDataset dataset = getSpendingData();  // Fetch data from DB
+        JFreeChart barChart = ChartFactory.createBarChart(
+                "Spending Trends",
+                "Category",
+                "Amount",
+                dataset,
+                PlotOrientation.VERTICAL,
+                true, true, false);
+        BarRenderer renderer = (BarRenderer) barChart.getCategoryPlot().getRenderer(); 
+        renderer.setBarPainter(new StandardBarPainter()); 
+        renderer.setSeriesPaint(0, Color.PINK);
+
+        return new ChartPanel(barChart);
+    }
+
+    private static JPanel createLineChartPanel() {
+    DefaultCategoryDataset dataset = getSavingsData(); // Use updated method
+
+    JFreeChart lineChart = ChartFactory.createLineChart(
+            "Savings Growth",
+            "Month",
+            "Savings (%)",
+            dataset,
+            PlotOrientation.VERTICAL,
+            true, true, false);
+
+    return new ChartPanel(lineChart);
+}
+
+
+    private static JPanel createLoanRepaymentPanel() {
+    DefaultCategoryDataset dataset = getLoanRepaymentData(); // Fetch data from DB
+
+    JFreeChart barChart = ChartFactory.createBarChart(
+            "Loan Repayments",
+            "Month",
+            "Outstanding Balance",
+            dataset,
+            PlotOrientation.VERTICAL,
+            true, true, false);
+
+    BarRenderer renderer = (BarRenderer) barChart.getCategoryPlot().getRenderer();
+    renderer.setBarPainter(new StandardBarPainter());
+    renderer.setSeriesPaint(0, Color.BLUE); // Customize bar color
+
+    return new ChartPanel(barChart);
+    }
+}
