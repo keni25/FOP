@@ -1,0 +1,6 @@
+Transaction ID,Transaction Type,Amount,Description,Date
+31,debit,2000.00,mama give money,2025-01-09
+32,debit,3000.00,baba give oso,2025-01-09
+33,credit,10.00,chaxianzi,2025-01-09
+34,credit,30.00,chagee,2025-01-09
+35,credit,3.00,teh beng,2025-01-09
